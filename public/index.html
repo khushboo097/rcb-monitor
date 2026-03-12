@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RCB Watch — Ticket Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red: #d4001a;
+    --gold: #c8a84b;
+    --gold-dim: rgba(200,168,75,0.12);
+    --dark: #080808;
+    --card: #101010;
+    --border: #1e1e1e;
+    --muted: #4a4a4a;
+    --green: #00e676;
+    --text: #e8e8e8;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Noise texture */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9998;
+  }
+
+  .stripe {
+    height: 3px;
+    background: linear-gradient(90deg, var(--red) 0%, var(--gold) 50%, var(--red) 100%);
+    background-size: 200%;
+    animation: stripe-move 4s linear infinite;
+  }
+  @keyframes stripe-move { to { background-position: 200% 0; } }
+
+  .wrap { max-width: 660px; margin: 0 auto; padding: 40px 20px 80px; }
+
+  /* Hero */
+  .hero {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 24px;
+    margin-bottom: 44px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    line-height: 0.9;
+    letter-spacing: 1px;
+    background: linear-gradient(160deg, #fff 30%, var(--gold) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .tagline {
+    font-size: 12px; color: var(--muted); margin-top: 10px;
+    font-weight: 300; letter-spacing: 0.3px;
+  }
+  .match-info { text-align: right; }
+  .teams {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px; letter-spacing: 3px; color: var(--red);
+    line-height: 1;
+  }
+  .match-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: var(--gold); margin-top: 6px; letter-spacing: 1px;
+  }
+  .match-venue { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  /* Setup box */
+  .setup-box {
+    background: var(--gold-dim);
+    border: 1px solid rgba(200,168,75,0.25);
+    border-radius: 2px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  .setup-box h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 2px; color: var(--gold);
+    margin-bottom: 16px;
+  }
+  .setup-steps { list-style: none; counter-reset: steps; }
+  .setup-steps li {
+    counter-increment: steps;
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(200,168,75,0.1);
+    font-size: 13px; line-height: 1.5;
+  }
+  .setup-steps li:last-child { border-bottom: none; }
+  .setup-steps li::before {
+    content: counter(steps);
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+    color: var(--gold); min-width: 20px; line-height: 1.1;
+  }
+  .setup-steps a { color: var(--gold); }
+  .setup-steps code {
+    background: rgba(255,255,255,0.06);
+    padding: 1px 6px; border-radius: 2px;
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    color: #fff; word-break: break-all;
+  }
+  .step-note { font-size: 11px; color: var(--muted); margin-top: 3px; display: block; }
+
+  /* Topic configurator */
+  .topic-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  .topic-box h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 2px; color: #fff;
+    margin-bottom: 4px;
+  }
+  .topic-box p { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+  .topic-row { display: flex; gap: 10px; align-items: center; }
+  .topic-input {
+    flex: 1;
+    background: #0a0a0a;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 10px 14px;
+    color: var(--gold);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .topic-input:focus { border-color: var(--gold); }
+  .copy-btn {
+    padding: 10px 18px;
+    background: var(--border);
+    border: none; border-radius: 2px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 1px; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { background: #2a2a2a; color: #fff; }
+  .copy-btn.copied { background: var(--green); color: #000; }
+
+  .ntfy-links {
+    display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;
+  }
+  .ntfy-link {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 14px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    font-size: 11px; color: var(--muted);
+    text-decoration: none;
+    transition: all 0.15s;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.5px;
+  }
+  .ntfy-link:hover { color: #fff; border-color: #444; }
+  .ntfy-link .platform-icon { font-size: 14px; }
+
+  /* Env instructions */
+  .env-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 2px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  .env-box h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 2px; color: #fff;
+    margin-bottom: 14px;
+  }
+  .env-row {
+    display: flex; gap: 10px; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .env-row:last-child { border-bottom: none; }
+  .env-key {
+    font-family: 'DM Mono', monospace; font-size: 12px;
+    color: var(--gold); min-width: 140px;
+  }
+  .env-val {
+    font-size: 12px; color: var(--muted); flex: 1; line-height: 1.4;
+  }
+
+  /* Deploy button */
+  .deploy-section { text-align: center; margin: 32px 0; }
+  .deploy-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 16px 32px;
+    background: var(--red);
+    color: #fff;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 3px;
+    text-decoration: none; border-radius: 2px;
+    transition: all 0.15s;
+    box-shadow: 0 4px 24px rgba(212,0,26,0.3);
+  }
+  .deploy-btn:hover {
+    background: #ff0020; transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(212,0,26,0.4);
+  }
+  .deploy-sub { font-size: 11px; color: var(--muted); margin-top: 10px; font-family: 'DM Mono', monospace; letter-spacing: 1px; }
+
+  /* Test section */
+  .test-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  .test-box h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 2px; color: #fff;
+    margin-bottom: 6px;
+  }
+  .test-box p { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+  .test-btn {
+    padding: 11px 22px;
+    background: transparent;
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 2px; border-radius: 2px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .test-btn:hover { background: var(--gold-dim); }
+  .test-result {
+    margin-top: 12px;
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    color: var(--green); display: none;
+  }
+
+  /* How it works */
+  .how-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px 28px;
+    margin-bottom: 28px;
+  }
+  .how-box h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px; letter-spacing: 2px; color: #fff;
+    margin-bottom: 18px;
+  }
+  .flow {
+    display: flex; align-items: center; gap: 0;
+    flex-wrap: wrap; gap: 0;
+  }
+  .flow-step {
+    text-align: center; padding: 12px 16px;
+    flex: 1; min-width: 100px;
+  }
+  .flow-icon { font-size: 24px; margin-bottom: 6px; }
+  .flow-label { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 1px; line-height: 1.4; }
+  .flow-arrow { color: var(--border); font-size: 18px; flex-shrink: 0; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: #2a2a2a;
+    letter-spacing: 1px; line-height: 2.2;
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--gold); }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    h1 { font-size: 48px; }
+    .hero { grid-template-columns: 1fr; }
+    .match-info { text-align: left; }
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<div class="stripe"></div>
+<div class="wrap">
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow">IPL 2026 · Auto Ticket Monitor</div>
+      <h1>RCB<br>WATCH</h1>
+      <div class="tagline">Checks rcb.in every 2 minutes · Pushes to your phone instantly</div>
+    </div>
+    <div class="match-info">
+      <div class="teams">RCB vs SRH</div>
+      <div class="match-meta">28 MAR 2026 · 19:30 IST</div>
+      <div class="match-venue">M. Chinnaswamy Stadium</div>
+    </div>
+  </div>
+
+  <!-- Step 1: ntfy topic -->
+  <div class="topic-box">
+    <h2>Step 1 — Your Private Alert Topic</h2>
+    <p>This is your unique channel. Copy it — you'll need it for the app and Netlify.</p>
+    <div class="topic-row">
+      <input class="topic-input" id="topicInput" readonly value="" />
+      <button class="copy-btn" id="copyBtn" onclick="copyTopic()">Copy</button>
+    </div>
+    <div class="ntfy-links">
+      <a class="ntfy-link" id="webLink" href="#" target="_blank">
+        <span class="platform-icon">🌐</span> Open in Browser
+      </a>
+      <a class="ntfy-link" href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank">
+        <span class="platform-icon">🤖</span> Android App
+      </a>
+      <a class="ntfy-link" href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank">
+        <span class="platform-icon">🍎</span> iOS App
+      </a>
+    </div>
+  </div>
+
+  <!-- Step 2: Setup steps -->
+  <div class="setup-box">
+    <h2>Step 2 — Setup in 3 Minutes</h2>
+    <ol class="setup-steps">
+      <li>
+        <div>
+          <strong>Install ntfy on your phone</strong> — it's free, no account needed
+          <span class="step-note">Android: Play Store · iOS: App Store · search "ntfy"</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Subscribe to your topic</strong> in the ntfy app
+          <span class="step-note">Tap + → enter your topic ID shown above → Subscribe</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Add the environment variable in Netlify</strong>
+          <span class="step-note">Site Settings → Environment Variables → Add: <code>NTFY_TOPIC</code> = your topic ID</span>
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Deploy this folder to Netlify</strong> — drag &amp; drop the zip below
+          <span class="step-note">The scheduled function runs automatically every 2 minutes, 24/7</span>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <!-- Env vars reference -->
+  <div class="env-box">
+    <h2>Netlify Environment Variable</h2>
+    <div class="env-row">
+      <div class="env-key">NTFY_TOPIC</div>
+      <div class="env-val">Your unique topic ID from Step 1 (e.g. <code id="envExample">rcb-xxxxxx</code>)</div>
+    </div>
+  </div>
+
+  <!-- Test notification -->
+  <div class="test-box">
+    <h2>Test Your Notification</h2>
+    <p>Send a test push to your phone right now — make sure ntfy is installed and subscribed first.</p>
+    <button class="test-btn" onclick="sendTestNotification()">Send Test Notification</button>
+    <div class="test-result" id="testResult">✓ Test sent! Check your phone — you should receive it within seconds.</div>
+  </div>
+
+  <!-- How it works -->
+  <div class="how-box">
+    <h2>How It Works — 3 Layers</h2>
+    <div style="display:grid;gap:12px;margin-bottom:4px;">
+      <div style="display:flex;align-items:center;gap:14px;padding:12px;background:#0a0a0a;border:1px solid #1e1e1e;border-radius:2px;">
+        <div style="font-size:22px;min-width:32px;text-align:center;">🐦</div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:3px;">LAYER 1 — TWITTER SYNDICATION API</div>
+          <div style="font-size:12px;color:#aaa;line-height:1.5;">Reads @RCBTweets via Twitter's own embed widget API — no auth, no key. <strong style="color:#fff">Fastest signal</strong>: RCB tweets the instant tickets go live.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:12px;background:#0a0a0a;border:1px solid #1e1e1e;border-radius:2px;">
+        <div style="font-size:22px;min-width:32px;text-align:center;">📡</div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:3px;">LAYER 2 — RSSHUB TWITTER RSS</div>
+          <div style="font-size:12px;color:#aaa;line-height:1.5;">Tries 3 RSSHub public instances to fetch @RCBTweets as RSS. Backup if Syndication API is slow or blocked.</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;padding:12px;background:#0a0a0a;border:1px solid #1e1e1e;border-radius:2px;">
+        <div style="font-size:22px;min-width:32px;text-align:center;">🌐</div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--gold);margin-bottom:3px;">LAYER 3 — ROYALCHALLENGERS.COM</div>
+          <div style="font-size:12px;color:#aaa;line-height:1.5;">Checks shop.royalchallengers.com/tickets for a live page (vs redirect), homepage nav for ticket href, and fixtures page for Buy Tickets CTAs.</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:10px 14px;background:rgba(200,168,75,0.07);border:1px solid rgba(200,168,75,0.2);border-radius:2px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:0.5px;">
+      All 3 layers run in parallel every 2 min. Any one firing sends an urgent ntfy push to your phone 📱
+    </div>
+  </div>
+
+  <footer>
+    Monitoring · <a href="https://www.royalchallengers.com/" target="_blank">royalchallengers.com</a> · <a href="https://ntfy.sh" target="_blank">ntfy.sh</a> · <a href="https://netlify.com" target="_blank">Netlify</a><br>
+    RCB vs SRH · IPL 2026 Opening Match · 28 March · M. Chinnaswamy Stadium
+  </footer>
+
+</div>
+
+<script>
+  // Generate a stable unique topic based on stored value or random
+  function getOrCreateTopic() {
+    let topic = localStorage.getItem('rcb_ntfy_topic');
+    if (!topic) {
+      const rand = Math.random().toString(36).substring(2, 9);
+      topic = `rcb-tickets-monitor`;
+      localStorage.setItem('rcb_ntfy_topic', topic);
+    }
+    return topic;
+  }
+
+  const topic = getOrCreateTopic();
+  document.getElementById('topicInput').value = topic;
+  document.getElementById('webLink').href = `https://ntfy.sh/${topic}`;
+  document.getElementById('envExample').textContent = topic;
+
+  function copyTopic() {
+    navigator.clipboard.writeText(topic).then(() => {
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '✓ Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  async function sendTestNotification() {
+    const btn = document.querySelector('.test-btn');
+    btn.textContent = 'Sending...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`https://ntfy.sh/${topic}`, {
+        method: 'POST',
+        headers: {
+          'Title': 'RCB Watch - Test Alert',
+          'Priority': 'high',
+          'Tags': 'cricket,white_check_mark',
+          'Click': 'https://www.royalchallengers.com/',
+          'Content-Type': 'text/plain; charset=utf-8',
+        },
+        body: 'Test notification from RCB Watch! If you see this, your alerts are working. You\'ll be notified the moment RCB vs SRH tickets go live on rcb.in. Ee Sala Cup Namde! \uD83C\uDFDF\uFE0F',
+      });
+
+      if (res.ok) {
+        document.getElementById('testResult').style.display = 'block';
+      } else {
+        const errText = await res.text();
+        alert(`ntfy error ${res.status}: ${errText}\n\nMake sure you are subscribed to topic "${topic}" in the ntfy app first.`);
+      }
+    } catch (e) {
+      alert(`Network error: ${e.message}\n\nIf using localhost, run via "netlify dev" or "npx serve" — not file://.`);
+    }
+
+    btn.textContent = '\u25B6 Send Test Notification';
+    btn.disabled = false;
+  }
+</script>
+</body>
+</html>

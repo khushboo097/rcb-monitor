@@ -1,0 +1,11 @@
+{
+  "name": "rcb-ticket-monitor",
+  "version": "1.0.0",
+  "description": "RCB vs SRH IPL 2026 ticket monitor with push notifications",
+  "scripts": {
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}
