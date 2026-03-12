@@ -21,6 +21,8 @@ const TICKET_TWEET_KEYWORDS = [
   "chinnaswamy",
   "srh",
   "sunrisers",
+  "rcb",
+  "ipl2026"
 ];
 
 const FETCH_HEADERS = {
@@ -54,9 +56,33 @@ async function checkTwitterSyndication() {
       return { found: false, source: "syndication", error: `HTTP ${res.status}` };
     }
 
-    const html = await res.text();
-    const result = parseTweetsFromHTML(html, "Twitter Syndication API");
-    return result;
+    const body = await res.text();
+
+    // Syndication API can return JSON or HTML depending on endpoint
+    // Try JSON parsing first (returns tweet objects with full_text)
+    try {
+      const data = JSON.parse(body);
+      const tweets = extractTweetsFromJSON(data);
+      console.log(`Syndication: found ${tweets.length} tweets`);
+      tweets.forEach((t, i) => console.log(`  [${i + 1}] ${t.text.substring(0, 150)}`));
+      for (const tweet of tweets) {
+        if (isTweetAboutTickets(tweet.text)) {
+          return {
+            found: true,
+            source: "Twitter Syndication API",
+            reason: `@RCBTweets tweeted about tickets: "${tweet.text.substring(0, 120)}..."`,
+            tweetText: tweet.text,
+          };
+        }
+      }
+      return { found: false, source: "syndication", checked: true };
+    } catch (_) {
+      // Not JSON — fall back to HTML parsing
+      console.log(`Syndication: response is HTML (${body.length} chars), extracting tweets...`);
+      const result = parseTweetsFromHTML(body, "Twitter Syndication API");
+      console.log(`Syndication HTML parse result: found=${result.found}, checked=${result.checked}`);
+      return result;
+    }
   } catch (err) {
     console.log(`Syndication API error: ${err.message}`);
     return { found: false, source: "syndication", error: err.message };
@@ -150,9 +176,10 @@ async function checkHomepageNav() {
     });
     if (!res.ok) return { found: false };
     const html = await res.text();
+    // Only match href in actual <a> tags, not CSS selectors or style blocks
     const patterns = [
-      /href=["'][^"']*shop\.royalchallengers\.com[^"']*ticket[^"']*["']/i,
-      /href=["'][^"']*royalchallengers\.com\/(buy-)?tickets[^"']*["']/i,
+      /<a\s[^>]*href=["'][^"']*shop\.royalchallengers\.com[^"']*ticket[^"']*["'][^>]*>/i,
+      /<a\s[^>]*href=["'][^"']*royalchallengers\.com\/(buy-)?tickets[^"']*["'][^>]*>/i,
     ];
     for (const p of patterns) {
       const m = html.match(p);
@@ -182,10 +209,28 @@ async function checkFixturesPage() {
 
 // ─── TWEET PARSERS ────────────────────────────────────────────────────────
 
+// Recursively extract tweet text from syndication JSON (structure varies)
+function extractTweetsFromJSON(obj, results = []) {
+  if (!obj || typeof obj !== "object") return results;
+  if (obj.full_text || obj.text) {
+    results.push({ text: obj.full_text || obj.text });
+  }
+  for (const val of Object.values(obj)) {
+    if (Array.isArray(val)) {
+      for (const item of val) extractTweetsFromJSON(item, results);
+    } else if (typeof val === "object" && val !== null) {
+      extractTweetsFromJSON(val, results);
+    }
+  }
+  return results;
+}
+
 function isTweetAboutTickets(text) {
   const lower = text.toLowerCase();
-  // Must contain "ticket" AND at least one action/context word
-  const hasTicket = lower.includes("ticket");
+  const hasKeyword = TICKET_TWEET_KEYWORDS.some((kw) => lower.includes(kw));
+  if (!hasKeyword) return false;
+
+  const hasTicket = lower.includes("ticket") || lower.includes("tickets");
   const hasAction =
     lower.includes("live") ||
     lower.includes("on sale") ||
@@ -195,7 +240,6 @@ function isTweetAboutTickets(text) {
     lower.includes("hurry") ||
     lower.includes("get your") ||
     lower.includes("now");
-  // Or directly links to the shop
   const hasShopLink = lower.includes("shop.royalchallengers") || lower.includes("royalchallengers.com");
 
   return (hasTicket && hasAction) || (hasTicket && hasShopLink);
@@ -217,10 +261,16 @@ function parseTweetsFromHTML(html, sourceName) {
   // Syndication API returns HTML with tweet text in <p> or data-* attributes
   // Extract text content between tweet-related tags
   const tweetMatches = [
+    ...html.matchAll(/"text"\s*:\s*"([^"]{20,500})"/g),
     ...html.matchAll(/"full_text"\s*:\s*"([^"]{20,500})"/g),
     ...html.matchAll(/<p[^>]*class="[^"]*tweet-text[^"]*"[^>]*>([^<]+)</g),
     ...html.matchAll(/data-tweet-text="([^"]{20,500})"/g),
   ];
+  console.log(`  ${sourceName}: matched ${tweetMatches.length} tweet texts`);
+  tweetMatches.slice(0, 10).forEach((m, i) => {
+    const text = m[1].replace(/\\n/g, " ").substring(0, 120);
+    console.log(`    [${i + 1}] ${text}`);
+  });
 
   for (const match of tweetMatches) {
     const text = match[1].replace(/\\n/g, " ").replace(/\\u[0-9a-f]{4}/gi, "");

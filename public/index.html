@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RCB Watch — Ticket Monitor</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%23d4001a'/%3E%3Crect x='2' y='2' width='60' height='60' rx='6' fill='none' stroke='%23c8a84b' stroke-width='2'/%3E%3Ctext x='32' y='30' text-anchor='middle' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='%23fff' letter-spacing='2'%3ERCB%3C/text%3E%3Ctext x='32' y='48' text-anchor='middle' font-family='Arial,monospace' font-size='9' fill='%23c8a84b' letter-spacing='3'%3EWATCH%3C/text%3E%3C/svg%3E" />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -360,26 +361,11 @@
       </li>
       <li>
         <div>
-          <strong>Add the environment variable in Netlify</strong>
-          <span class="step-note">Site Settings → Environment Variables → Add: <code>NTFY_TOPIC</code> = your topic ID</span>
-        </div>
-      </li>
-      <li>
-        <div>
-          <strong>Deploy this folder to Netlify</strong> — drag &amp; drop the zip below
-          <span class="step-note">The scheduled function runs automatically every 2 minutes, 24/7</span>
+          <strong>Get notified once the tickets go live!</strong>
+          <span class="step-note">All the best! Grab those tickets!!</span>
         </div>
       </li>
     </ol>
-  </div>
-
-  <!-- Env vars reference -->
-  <div class="env-box">
-    <h2>Netlify Environment Variable</h2>
-    <div class="env-row">
-      <div class="env-key">NTFY_TOPIC</div>
-      <div class="env-val">Your unique topic ID from Step 1 (e.g. <code id="envExample">rcb-xxxxxx</code>)</div>
-    </div>
   </div>
 
   <!-- Test notification -->
@@ -443,7 +429,6 @@
   const topic = getOrCreateTopic();
   document.getElementById('topicInput').value = topic;
   document.getElementById('webLink').href = `https://ntfy.sh/${topic}`;
-  document.getElementById('envExample').textContent = topic;
 
   function copyTopic() {
     navigator.clipboard.writeText(topic).then(() => {
