@@ -1,0 +1,15 @@
+name: RCB Ticket Check
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ticket check
+        run: |
+          curl -s -o /dev/null -w "HTTP %{http_code}" \
+            https://rcb-match-watcher.netlify.app/.netlify/functions/check-tickets
