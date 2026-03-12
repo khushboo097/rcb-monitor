@@ -382,17 +382,20 @@ async function sendPushNotification(result) {
 
 async function sendHeartbeat(details) {
   try {
-    await fetch(`${NTFY_SERVER}/${NTFY_TOPIC}-log`, {
+    const res = await fetch(`${NTFY_SERVER}/${NTFY_TOPIC}-log`, {
       method: "POST",
       headers: {
-        Title: "RCB Watch — No tickets yet",
-        Priority: "min",
+        Title: "RCB Watch - No tickets yet",
+        Priority: "default",
         Tags: "eyes",
         "Content-Type": "text/plain",
       },
       body: `${new Date().toISOString()} — ${details}`,
     });
-  } catch (_) {}
+    console.log(`Heartbeat sent: ${res.status} ${res.statusText}`);
+  } catch (err) {
+    console.error("Heartbeat failed:", err.message);
+  }
 }
 
 // ─── MAIN HANDLER ─────────────────────────────────────────────────────────
